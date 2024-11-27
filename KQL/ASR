@@ -1,0 +1,9 @@
+// KEEP Information Security Services - https://www.wearekeep.co.uk //
+// Review ASR Events //
+
+DeviceEvents
+| where ActionType startswith "asr"
+| where FileName contains "xxx"
+| join DeviceInfo on DeviceId
+| project OSPlatform, OSVersion, DeviceName, ActionType, FileName
+| summarize by OSPlatform, OSVersion, DeviceName, ActionType, FileName
