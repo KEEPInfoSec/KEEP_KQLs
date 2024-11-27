@@ -1,0 +1,61 @@
+// KEEP Information Security Services - https://www.wearekeep.co.uk //
+// CISA Known Exploitable Vulnerability (KEV) - this is a 3 query bundle, expanded on from others found elsewhere - run each query in turn //
+
+// QUERY 1 // 
+// Description - queries the CISA KEV produced list and provides a high level summary, change "VulnerabilitySeverityLevel == xxxx" e.g Critical, High, Medium, Low - depending on what you're trying to find! //
+let KEV=
+externaldata(cveID: string, vendorProject: string, product: string, vulnerabilityName: string, dateAdded: datetime, shortDescription: string, requiredAction: string, dueDate: datetime, knownRansomwareCampaignUse:string,notes:string)
+[
+h@'https://www.cisa.gov/sites/default/files/csv/known_exploited_vulnerabilities.csv'
+]
+with(format='csv',ignorefirstrecord=true);
+DeviceTvmSoftwareVulnerabilities
+| project DeviceName, OSPlatform, cveID=CveId, CveMitigationStatus, SoftwareName, SoftwareVendor, VulnerabilitySeverityLevel, SoftwareVersion, RecommendedSecurityUpdate, RecommendedSecurityUpdateId
+| join kind=inner KEV on cveID
+//| project DeviceName, knownRansomwareCampaignUse, SoftwareName, SoftwareVendor, vulnerabilityName, shortDescription, cveID, VulnerabilitySeverityLevel, CveMitigationStatus, RecommendedSecurityUpdate
+| summarize ['Vulnerabilities']=make_set(cveID) by DeviceName, cveID, shortDescription, VulnerabilitySeverityLevel, CveMitigationStatus, RecommendedSecurityUpdate, SoftwareVendor, SoftwareName, SoftwareVersion, vulnerabilityName
+| extend ['Count of Known Exploited Vulnerabilities'] = array_length(['Vulnerabilities'])
+//| project VulnerabilitySeverityLevel, cveID, DeviceName, shortDescription
+| summarize count()by VulnerabilitySeverityLevel, cveID, vulnerabilityName, shortDescription, RecommendedSecurityUpdate
+| where VulnerabilitySeverityLevel == 'Critical'
+| sort by count_
+
+/////////////////////////////
+// QUERY 2 //
+// Description - queries the CISA KEV produced list and provides a more detailed verison of above e.g software name, and versions so updates can be more targetted. //
+let KEV=
+externaldata(cveID: string, vendorProject: string, product: string, vulnerabilityName: string, dateAdded: datetime, shortDescription: string, requiredAction: string, dueDate: datetime, knownRansomwareCampaignUse:string,notes:string)
+[
+h@'https://www.cisa.gov/sites/default/files/csv/known_exploited_vulnerabilities.csv'
+]
+with(format='csv',ignorefirstrecord=true);
+DeviceTvmSoftwareVulnerabilities
+| project DeviceName, OSPlatform, cveID=CveId, CveMitigationStatus, SoftwareName, SoftwareVendor, VulnerabilitySeverityLevel, SoftwareVersion, RecommendedSecurityUpdate, RecommendedSecurityUpdateId
+| join kind=inner KEV on cveID
+//| project DeviceName, knownRansomwareCampaignUse, SoftwareName, SoftwareVendor, vulnerabilityName, shortDescription, cveID, VulnerabilitySeverityLevel, CveMitigationStatus, RecommendedSecurityUpdate
+| summarize ['Vulnerabilities']=make_set(cveID) by DeviceName, cveID, shortDescription, VulnerabilitySeverityLevel, CveMitigationStatus, RecommendedSecurityUpdate, SoftwareVendor, SoftwareName, SoftwareVersion, vulnerabilityName
+| extend ['Count of Known Exploited Vulnerabilities'] = array_length(['Vulnerabilities'])
+//| project VulnerabilitySeverityLevel, cveID, DeviceName, shortDescription
+| summarize count()by VulnerabilitySeverityLevel, cveID, vulnerabilityName, SoftwareVendor, SoftwareName, SoftwareVersion, shortDescription, RecommendedSecurityUpdate
+| where VulnerabilitySeverityLevel == 'Critical'
+| sort by count_
+
+///////////////////////////
+//QUERY 3//
+// Description - Now you have the outputs, add in the CVE's (Line 55 where cveID == 'CVE-xxxx') here you want to remediate first and you get a list of DeviceNames to target :-) //
+let KEV=
+externaldata(cveID: string, vendorProject: string, product: string, vulnerabilityName: string, dateAdded: datetime, shortDescription: string, requiredAction: string, dueDate: datetime, knownRansomwareCampaignUse:string,notes:string)
+[
+h@'https://www.cisa.gov/sites/default/files/csv/known_exploited_vulnerabilities.csv'
+]
+with(format='csv',ignorefirstrecord=true);
+DeviceTvmSoftwareVulnerabilities
+| project DeviceName, OSPlatform, cveID=CveId, CveMitigationStatus, SoftwareName, SoftwareVendor, VulnerabilitySeverityLevel, SoftwareVersion, RecommendedSecurityUpdate, RecommendedSecurityUpdateId
+| join kind=inner KEV on cveID
+//| project DeviceName, knownRansomwareCampaignUse, SoftwareName, SoftwareVendor, vulnerabilityName, shortDescription, cveID, VulnerabilitySeverityLevel, CveMitigationStatus, RecommendedSecurityUpdate
+| summarize ['Vulnerabilities']=make_set(cveID) by DeviceName, cveID, shortDescription, VulnerabilitySeverityLevel, CveMitigationStatus, RecommendedSecurityUpdate, SoftwareVendor, SoftwareName, SoftwareVersion, vulnerabilityName
+| extend ['Count of Known Exploited Vulnerabilities'] = array_length(['Vulnerabilities'])
+//| project VulnerabilitySeverityLevel, cveID, DeviceName, shortDescription
+| summarize count()by DeviceName, VulnerabilitySeverityLevel, cveID, vulnerabilityName, SoftwareVendor, SoftwareName, SoftwareVersion, shortDescription, RecommendedSecurityUpdate
+| where cveID == 'CVE-2023-23397'
+| sort by DeviceName, count_
