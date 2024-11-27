@@ -1,0 +1,26 @@
+// KEEP Information Security Services - https://www.wearekeep.co.uk //
+// Who has what software - in this example we're searching for Office2013 across multipel networks that are on-prem :D, but simply change to what you're looking for!  //
+
+let O2013_Devices = DeviceInfo;
+let UserIdentity = IdentityInfo;
+let Office2013 = DeviceTvmSoftwareInventory
+| join O2013_Devices on DeviceId;
+IdentityInfo
+| extend OnPrem_AccountName = AccountName
+| project OnPrem_AccountName, AccountUpn, JobTitle, Department, City, IsAccountEnabled, OnPremSid, AccountDomain, DistinguishedName
+| where IsAccountEnabled
+| join kind=inner (
+DeviceInfo
+| join Office2013 on DeviceId
+| where SoftwareName has "Office_2013"
+| extend LoggedOnUsers = tostring(LoggedOnUsers)
+| project DeviceName, SoftwareName, QueryCurrentUsers = parse_json(LoggedOnUsers), Timestamp, OSArchitecture, JoinType, DeviceType, OSDistribution
+| mv-apply QueryCurrentUsers on ( 
+     project UserName = QueryCurrentUsers.UserName, On_Premise_User_SID = QueryCurrentUsers.Sid, DomainName = QueryCurrentUsers.DomainName
+ )
+| extend UserName = tostring(UserName))
+ on $left.OnPrem_AccountName == $right.UserName
+| project DeviceName, OnPrem_AccountName, UserName, JobTitle, Department, SoftwareName, AccountDomain, OSArchitecture, JoinType, DeviceType, OSDistribution, OnPremSid, DistinguishedName, IsAccountEnabled
+| distinct OnPrem_AccountName, UserName, JobTitle, Department, DeviceName, AccountDomain, SoftwareName, OSArchitecture, JoinType, DeviceType, OSDistribution, OnPremSid, DistinguishedName, IsAccountEnabled 
+//| summarize by DeviceName, OnPrem_AccountName
+| sort by OnPrem_AccountName asc nulls last 
