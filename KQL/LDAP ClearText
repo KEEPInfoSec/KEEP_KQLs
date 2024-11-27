@@ -1,1 +1,29 @@
-
+// KEEP Information Security Services - https://www.wearekeep.co.uk //
+// LDAP CLearText Query //
+IdentityLogonEvents
+| where Timestamp > ago(30d)
+| where LogonType == "LDAP cleartext"
+// you may want to exclude some common AccountUPN's //
+| where AccountUpn !contains "xxxx"
+// You may want to expand AdditionalFields //
+//| extend Source_ID = tostring(todynamic(AdditionalFields).SourceComputerId)
+| project LogonTime = Timestamp, DeviceName, Application, ActionType, LogonType, AccountName, AccountUpn, DestinationDeviceName, DestinationIPAddress, DestinationPort, Source_IP = IPAddress
+| join kind=inner (
+DeviceNetworkEvents
+// You may want to include / excluse ActionType, trim DEvice names, or not specify the RemotePort //
+//| where ActionType == "ConnectionSuccess"
+//| extend DeviceName = toupper(trim(@"\..*$",DeviceName))
+//| where RemotePort == "389"
+| project NetworkConnectionTime = Timestamp, DeviceName, InitiatingProcessAccountName, InitiatingProcessFileName, InitiatingProcessFolderPath, InitiatingProcessCommandLine
+) on DeviceName
+| where LogonTime - NetworkConnectionTime between (-2m .. 2m)
+// You may want to exclude some intiating processes, to cut down some of the noise in the query - depends what you're looking for //
+| where not (InitiatingProcessCommandLine has "services.exe" 
+           or InitiatingProcessCommandLine has "lsass.exe" 
+           or InitiatingProcessCommandLine has "svchost.exe" 
+           or InitiatingProcessCommandLine has "healthservice.exe" 
+           or InitiatingProcessCommandLine has "ccmexec.exe" 
+            )
+| summarize count() by AccountUpn, DeviceName, Source_IP,InitiatingProcessCommandLine, InitiatingProcessFolderPath, DestinationDeviceName, LogonType
+// Use a "top hitters" if you require //
+//| top-hitters 1000 of InitiatingProcessFolderPath
