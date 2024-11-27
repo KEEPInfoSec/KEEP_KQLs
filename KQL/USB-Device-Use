@@ -1,0 +1,72 @@
+// KEEP Information Security Services - https://www.wearekeep.co.uk //
+// USB Storage Device Use - more complicated query to really delve into USB drive use //
+
+DeviceEvents
+| where Timestamp > ago(7d)
+| where ActionType == "UsbDriveMounted"
+| extend USB_DL = tostring(todynamic(AdditionalFields).DriveLetter)
+| extend USB_BusType = tostring(todynamic(AdditionalFields).BusType)
+| extend USB_ProductName = tostring(todynamic(AdditionalFields).ProductName)
+| extend USB_Manufacturer = tostring(todynamic(AdditionalFields).Manufacturer)
+| extend USB_Serial = tostring(todynamic(AdditionalFields).SerialNumber)
+| extend USB_LoU = tostring(todynamic(AdditionalFields).LoggedOnUsers)
+| where USB_Manufacturer !has "ATA"
+| project USBMountTime = Timestamp, DeviceName, InitiatingProcessAccountUpn, USB_LoU, USB_DL, USB_BusType, USB_ProductName, USB_Manufacturer, USB_Serial
+| where USB_BusType == 7
+| join (
+DeviceFileEvents
+| where Timestamp > ago(7d)
+| where ActionType == "FileCreated"
+| parse FolderPath with DriveLetter '\\' *
+| extend DriveLetter = tostring(DriveLetter)
+)
+on DeviceName
+| project USBMountTime, DeviceName, USB_ProductName, USB_Manufacturer, USB_Serial, DeviceId, Timestamp, InitiatingProcessAccountName, SHA1, ReportId, FileName, AdditionalFields, InitiatingProcessAccountUpn, FolderPath, FileSize, InitiatingProcessFileName, InitiatingProcessCommandLine, InitiatingProcessParentFileName
+| where (Timestamp - USBMountTime) between (0min .. 60min)
+| where FolderPath !startswith "C:\\Windows\\"
+| where FolderPath !startswith "C:\\Program Files\\"
+| where not (InitiatingProcessAccountName has "system" 
+            or InitiatingProcessAccountName has "local service"
+            or InitiatingProcessAccountName has "network service"
+            )
+| where not (FolderPath has "INetCache" 
+            or FolderPath has "Temp"
+            or FolderPath has "BGInfo"
+            or FolderPath has "cache_data"
+            or FolderPath has "style"
+            or FolderPath has "wer"
+            or FolderPath has "Teams"
+                        )
+| where not (FileName has ".gif" 
+            or FileName has ".dll"
+            or FileName has ".htm"
+            or FileName has ".html"
+            or FileName has ".css" 
+            or FileName has ".LNK" 
+            or FileName has ".ink" 
+            or FileName has ".xml"
+            or FileName has ".inf"
+            or FileName has ".node"
+            or FileName has ".js"
+            or FileName has ".psm1"
+            or FileName has ".msi"
+            or FileName has ".exe"
+            or FileName has ".chm"
+            or FileName has ".svg"
+            or FileName has ".config"
+            or FileName has ".sys"
+            )
+| where not (InitiatingProcessFileName has "OneDriveSetup.exe"
+            or InitiatingProcessFileName has "msedge.exe"
+            or InitiatingProcessFileName has "msedgewebview2.exe"
+            or InitiatingProcessFileName has "SDXHelper.exe"
+            or InitiatingProcessFileName has "svchost.exe"
+            )
+| project USBMountTime, DeviceName, USB_ProductName, USB_Manufacturer, USB_Serial, FileName, InitiatingProcessAccountUpn, FolderPath
+| distinct USBMountTime, DeviceName, USB_ProductName, USB_Manufacturer, USB_Serial, FileName, InitiatingProcessAccountUpn
+/// USE this as QUERY 1 - Finds all relvant USB device usage - past 7 days or whatever is configured above ///
+| summarize CounfOfFiles=count()by DeviceName, USB_ProductName, USB_Manufacturer, USB_Serial, InitiatingProcessAccountUpn
+// USE This as QUERY 2 - comment out Line65&69 and uncomment Line 67&68 to find list of Files by the USER UPN //
+//| where InitiatingProcessAccountUpn has "xx"
+//| project USBMountTime, DeviceName, USB_ProductName, USB_Manufacturer, USB_Serial, FileName, InitiatingProcessAccountUpn, FolderPath
+| sort by CounfOfFiles desc nulls last 
