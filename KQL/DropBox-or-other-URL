@@ -1,0 +1,8 @@
+// KEEP Information Security Services - https://www.wearekeep.co.uk //
+// DropBox or Other URL - simple query to see what devices are hitting specifc URL's - helpful for baselining //
+
+DeviceNetworkEvents
+| where RemoteUrl contains "dropbox.com"
+| summarize Count = dcount(DeviceId) by DeviceName, RemoteUrl
+| project DeviceName, RemoteUrl, Count
+| summarize count()by DeviceName
